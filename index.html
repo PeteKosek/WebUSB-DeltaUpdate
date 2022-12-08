@@ -1,0 +1,151 @@
+<html>
+  <head>
+    <title>WebUSB Implementation Demo</title>
+  </head>
+
+
+<body>
+  <script>
+var serial = {};
+
+//WebUSB APIs
+(function() {
+  'use strict';
+
+  serial.getPorts = function() {
+    return navigator.usb.getDevices().then(devices => {
+      return devices.map(device => new serial.Port(device));
+    });
+  };
+
+  serial.requestPort = function() {
+    const filters = [
+      { 'vendorId': 0x2fe3, 'productId': 0x0100 },
+      { 'vendorId': 0x2fe3, 'productId': 0x00a },
+      { 'vendorId': 0x8086, 'productId': 0xF8A1 },
+    ];
+    return navigator.usb.requestDevice({'filters': filters })
+    .then(device => new serial.Port(device)
+    );
+  }
+
+  serial.Port = function(device) {
+    this.device_ = device;
+  };
+
+  serial.Port.prototype.connect = function() {
+    let readLoop = () => {
+      const {
+        endpointNumber
+      } = this.device_.configuration.interfaces[0].alternate.endpoints[0]
+      this.device_.transferIn(endpointNumber, 64).then(result => {
+        this.onReceive(result.data);
+        readLoop();
+      }, error => {
+        this.onReceiveError(error);
+      });
+    };
+
+    return this.device_.open()
+        .then(() => {
+          if (this.device_.configuration === null) {
+            return this.device_.selectConfiguration(1);
+          }
+        })
+        .then(() => this.device_.claimInterface(0))
+        .then(() => {
+          readLoop();
+        });
+  };
+
+  serial.Port.prototype.disconnect = function() {
+    return this.device_.close();
+  };
+
+  serial.Port.prototype.send = function(data) {
+    const {
+      endpointNumber
+    } = this.device_.configuration.interfaces[0].alternate.endpoints[1]
+    return this.device_.transferOut(endpointNumber, data);
+  };
+})();
+
+let port;
+
+function connect() {
+  port.connect().then(() => {
+    port.onReceive = data => {
+      let textDecoder = new TextDecoder();
+      console.log("Received:", textDecoder.decode(data));
+      let hexData = buf2hex(data);
+      console.log("Received in hex: ", hexData);
+      document.getElementById('output').value += textDecoder.decode(data);
+    }
+    port.onReceiveError = error => {
+      console.error(error);
+      document.querySelector("#connect").style = "visibility: initial";
+      port.disconnect();
+    };
+  });
+}
+
+function send(string) {
+  console.log("sending to serial:" + string.length);
+  if (string.length === 0)
+    return;
+  console.log("sending to serial: [" + string +"]\n");
+
+  //converting the string into to utf-8 format
+  let view = new TextEncoder().encode(string);
+  console.log(view);
+  if (port) {
+    //sending the string
+    port.send(view);
+  }
+};
+
+function readFile(input) {
+  let file = input.files[0];
+  let reader = new FileReader();
+  reader.readAsArrayBuffer(file);
+  reader.onload = function() {
+    console.log(reader.result);
+    send(reader);
+  };
+  reader.onerror = function() {
+    console.log(reader.error);
+  };
+}
+
+window.onload = _ => 
+{
+  //if connect button pressed
+  document.querySelector("#connect").onclick = function() 
+  {
+    serial.requestPort().then(selectedPort => 
+    {
+      port = selectedPort;
+      this.style = "visibility: hidden";
+      connect();
+    });
+  }
+
+  //after clicking "Send", send data from the editor textarea
+  document.querySelector("#submit").onclick = () => 
+  {
+    let source = document.querySelector("#editor").value;
+    send(source);
+  }
+  
+}
+
+</script>
+ <button id="connect" style="visibility: initial">Connect To WebUSB Device</button>
+ <br><br><label for="title">Sender: </label> <br>
+ <textarea id="editor", rows="25" cols="80" id="source">WebUSB!</textarea>
+ <br><button id="submit">Send</button>
+ <input type="file" onchange="readFile(this)">
+ <br><br>
+ <label for="title">Receiver: </label> </br>
+ <textarea id="output", rows="25" cols="80" id="source"></textarea>
+</body>
