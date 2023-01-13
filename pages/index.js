@@ -1,7 +1,4 @@
 import Head from "next/head";
-import Image from "next/image";
-import { Inter } from "@next/font/google";
-import styles from "../styles/Home.module.css";
 import { useEffect, useState, useRef } from "react";
 
 const filters = [
@@ -9,8 +6,6 @@ const filters = [
   // { vendorId: 0x2fe3, productId: 0x00a },
   // { vendorId: 0x8086, productId: 0xf8a1 },
 ];
-
-const inter = Inter({ subsets: ["latin"] });
 
 export default function Home() {
   //States
