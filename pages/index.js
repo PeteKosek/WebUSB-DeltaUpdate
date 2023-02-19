@@ -113,6 +113,20 @@ export default function Home() {
     portRef.current.transferOut(endpointOut, view);
   };
 
+  ///////////////////////////////////////////////////////////////////
+  //
+  // This function sends a POST message to the API method in deltaupdate.js
+  // passing the read firmware version as its body.
+  //
+  //
+  ///////////////////////////////////////////////////////////////////
+  const Post = async (readVersion) => {
+    let response = await fetch("/api/deltaupdate", {
+      method: "POST",
+      body: readVersion,
+    });
+    console.log(await response.json());
+  };
   //Rendered wabpage contents/ DOM structure
   return (
     <>
@@ -181,7 +195,7 @@ export default function Home() {
           marginTop: 30,
         }}
       >
-        <button>Update device</button>
+        <button onClick={() => Post("1.2.3")}>Update device</button>
         <button>Read Firmware</button>
       </div>
     </>
