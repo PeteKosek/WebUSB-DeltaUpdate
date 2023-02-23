@@ -144,11 +144,6 @@ export default function Home() {
         For the board to update its firmware, it needs to have WebUSB handler
         program in either of its image slots.{" "}
       </h4>
-      <h4>
-        If the board does not run the handler, click "Install WebUSB handler",
-        and then "Update device".{" "}
-      </h4>
-
       <div
         style={{
           display: "flex",
@@ -163,7 +158,6 @@ export default function Home() {
         >
           Connect To WebUSB Device
         </button>
-        <button>Install WebUSB handler</button>
       </div>
       <div
         style={{
