@@ -1,5 +1,6 @@
 import Head from "next/head";
 import { useEffect, useState, useRef } from "react";
+import { diff, patch } from "../external/bsdiff4.js";
 //filters so that we don't detect unnecessary usb devices in a system
 const filters = [
   { vendorId: 0x2fe3, productId: 0x0100 },
@@ -121,11 +122,38 @@ export default function Home() {
   //
   ///////////////////////////////////////////////////////////////////
   const Post = async (readVersion) => {
-    let response = await fetch("/api/deltaupdate", {
-      method: "POST",
-      body: readVersion,
+    // let response = await fetch("/api/deltaupdate", {
+    //   method: "POST",
+    //   body: readVersion,
+    // });
+    // console.log(await response.json());
+
+    //  a = 100000 * b'a'
+    //  b = bytearray(a)
+    //  b[100:106] = b' diff '
+    //  p = bsdiff4.diff(a, bytes(b))
+    //  len(p)
+    // 154
+    const t = [0b01100100, 0b01101001, 0b01100110, 0b01100110]; //"diff"
+    const a = new ArrayBuffer(100);
+    let aS = new Int8Array(a);
+    aS.fill(0b01100001); //'a'
+
+    let b = new ArrayBuffer(100);
+    let bS = new Int8Array(b);
+    bS.set(aS);
+    bS.set(t, 90);
+    //diff here after converting newImg and oldImg to arraybuffer
+    diff({
+      arrBuff_old: a,
+      old_length: a.byteLength,
+      arrBuff_new: b,
+      new_length: b.byteLength,
+    }).then((value) => {
+      if (value == -1) return -1;
+      console.log(value.byteLength);
+      console.log(value);
     });
-    console.log(await response.json());
   };
   //Rendered wabpage contents/ DOM structure
   return (
@@ -189,7 +217,7 @@ export default function Home() {
           marginTop: 30,
         }}
       >
-        <button onClick={() => Post("1.2.3")}>Update device</button>
+        <button onClick={() => Post()}>Update device</button>
         <button>Read Firmware</button>
       </div>
     </>

@@ -1,6 +1,6 @@
 const { resolve, join } = require("path");
 const { readFileSync } = require("fs"); //filesystem
-
+import { diff, patch } from "../../external/bsdiff4";
 //strucutre for storing image binaries along with their respective versions
 let images = new Map([
   ["key", "zephyr.bin"],
@@ -44,7 +44,9 @@ export default async function handler(req, res) {
   const arrBuff_oldImg = toArrayBuffer(oldImg);
   const arrBuff_newImg = toArrayBuffer(newImg);
   //diff here after converting newImg and oldImg to arraybuffer
+  const arrBuff_diff = diff(arrBuff_oldImg, arrBuff_newImg);
 
-  return res.json({ version, image: images.get(version) });
+  //return res.json({ version, image: images.get(version) });
+  return res.json({ arrBuff_diff });
   //res.redirect to chain APIs(parameters?)?
 }

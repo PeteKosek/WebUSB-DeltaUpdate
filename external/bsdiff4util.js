@@ -28,6 +28,7 @@ function copy(src) {
 ///////////////////////////////////////////////////////////////////
 function memcpy({ src, dst, length } = {}) {
   try {
+    console.log("memcpy");
     if (!ArrayBuffer.isView(src)) {
       throw new Error("Expected typed array type of src parameter");
     }
@@ -49,151 +50,187 @@ function memcpy({ src, dst, length } = {}) {
 }
 
 ///////////////////////////////////////////////////////////////////
-//
 // A recursive function used in the sorting function. Splits
 // src and dst data accroding to given index and length.
 //
 ///////////////////////////////////////////////////////////////////
-function split(obj) {
-  var i, j, k, x, tmp, jj, kk;
-  if (obj.len < 16) {
-    for (k = obj.start; k < obj.start + obj.len; k += j) {
-      j = 1;
-      x = obj.V[obj.I[k] + h];
-      for (i = 1; k + i < obj.start + obj.len; i++) {
-        if (obj.V[obj.I[k + i] + obj.h] < x) {
-          x = obj.V[obj.I[k + i] + obj.h];
-          j = 0;
+async function split({ I, V, start, len, h } = {}) {
+  try {
+    let i, j, k, x, tmp, jj, kk;
+    //console.log("I: ", I);
+    if (len < 16) {
+      //console.log("tiny splitting");
+      for (k = start; k < start + len; k += j) {
+        j = 1;
+        x = V.at(I.at(k) + h);
+        for (i = 1; k + i < start + len; i++) {
+          if (V.at(I.at(k + i) + h) < x) {
+            //console.log("tiny splitting 1");
+            x = V.at(I.at(k + i) + h);
+            j = 0;
+          }
+          if (V.at(I.at(k + i) + h) == x) {
+            //console.log("tiny splitting 2");
+            tmp = I.at(k + j);
+            I[k + j] = I.at(k + i);
+            I[k + i] = tmp;
+            j++;
+          }
         }
-        if (obj.V[obj.I[k + i] + obj.h] == x) {
-          tmp = obj.I[k + j];
-          obj.I[k + j] = obj.I[k + i];
-          obj.I[k + i] = tmp;
+        for (i = 0; i < j; i++) {
+          V[I.at(k + i)] = k + j - 1;
+        }
+        if (j == 1) {
+          //console.log("tiny splitting 3");
+          I[k] = -1;
+        }
+      }
+    } else {
+      //console.log("big splitting");
+      const y = Number(start + len / 2);
+      const l = I.at(y);
+      if (isNaN(l)) {
+        throw new Error(" I returned a NaN");
+      }
+      x = V.at(l + h);
+
+      jj = 0;
+      kk = 0;
+
+      for (i = start; i < start + len; i++) {
+        if (V.at(I.at(i) + h) < x) jj++;
+        if (V.at(I.at(i) + h) == x) kk++;
+      }
+      jj += start;
+      kk += jj;
+      i = start;
+      j = 0;
+      k = 0;
+      // console.log("x: %d", x);
+      // console.log("i: %d", i);
+      // console.log("jj: %d", jj);
+      // console.log("kk: %d", kk);
+      while (i < jj) {
+        if (V.at(I.at(i) + h) < x) {
+          //console.log("splitting3.1.2");
+          i++;
+        } else if (V.at(I.at(i) + h) == x) {
+          //console.log("splitting3.1.3");
+          tmp = I.at(i);
+          I[i] = I.at(jj + j);
+          I[jj + j] = tmp;
           j++;
+        } else {
+          //console.log("splitting3.1.4");
+          tmp = I.at(i);
+          I[i] = I.at(kk + k);
+          I[kk + k] = tmp;
+          k++;
         }
       }
-      for (i = 0; i < j; i++) obj.V[obj.I[k + i]] = k + j - 1;
-      if (j == 1) obj.I[k] = -1;
-    }
-  } else {
-    jj = 0;
-    kk = 0;
-    x = obj.V[obj.I[obj.start + obj.len / 2] + obj.h];
-    for (i = obj.start; i < obj.start + obj.len; i++) {
-      if (obj.V[obj.I[i] + obj.h] < x) jj++;
-      if (obj.V[obj.I[i] + obj.h] == x) kk++;
-    }
-    jj += obj.start;
-    kk += jj;
-    j = 0;
-    k = 0;
-    i = obj.start;
-    while (i < jj) {
-      if (obj.V[obj.I[i] + obj.h] < x) {
-        i++;
-      } else if (obj.V[obj.I[i] + obj.h] == x) {
-        tmp = obj.I[i];
-        obj.I[i] = obj.I[jj + j];
-        obj.I[jj + j] = tmp;
-        j++;
-      } else {
-        tmp = obj.I[i];
-        obj.I[i] = obj.I[kk + k];
-        obj.I[kk + k] = tmp;
-        k++;
+      while (jj + j < kk) {
+        if (V.at(I.at(jj + j) + h) == x) {
+          //console.log("splitting3.2.2");
+          j++;
+        } else {
+          //console.log("splitting3.2.3");
+          tmp = I.at(jj + j);
+          I[jj + j] = I.at(kk + k);
+          I[kk + k] = tmp;
+          k++;
+        }
       }
-    }
-    while (jj + j < kk) {
-      if (obj.V[obj.I[jj + j] + obj.h] == x) {
-        j++;
-      } else {
-        tmp = obj.I[jj + j];
-        obj.I[jj + j] = obj.I[kk + k];
-        obj.I[kk + k] = tmp;
-        k++;
+      if (jj > start) {
+        //console.log("recurse 1, jj: %d, len: %d", jj, jj - start);
+        await split({ I: I, V: V, start: start, len: jj - start, h: h });
       }
+      for (i = 0; i < kk - jj; i++) {
+        V[I[jj + i]] = kk - 1;
+      }
+
+      if (jj == kk - 1) {
+        // console.log("splitting3.4.1");
+        I[jj] = -1;
+      }
+
+      if (start + len > kk) {
+        //console.log("recurse 2");
+        //console.log(len == kk);
+        await split({ I: I, V: V, start: kk, len: start + len - kk, h: h });
+      }
+      return 0;
     }
-    if (jj > obj.start) {
-      obj.len = jj - start;
-      split(obj);
-    }
-    for (i = 0; i < kk - jj; i++) {
-      obj.V[obj.I[jj + i]] = kk - 1;
-    }
-    if (jj == kk - 1) obj.I[jj] = -1;
-    if (obj.start + obj.len > kk) {
-      obj.len = obj.start + obj.len - kk;
-      obj.start = kk;
-      split(obj);
-    }
+  } catch (Error) {
+    console.error(Error);
+    return -1;
   }
 }
 
 ///////////////////////////////////////////////////////////////////
-//
-// A sorting function.
-//
+// A quick suffix sorting function(N.J. Larssona,
+// K. Sadakaneb, "Faster suffix sorting" 2007)
 ///////////////////////////////////////////////////////////////////
-function qsufsort(obj) {
-  var buckets = [256],
-    i,
-    h,
-    len;
+async function qsufsort({ I, V, oldData, oldLength } = {}) {
+  try {
+    console.log("sorting");
+    let buckets = [256],
+      i,
+      h,
+      len;
 
-  for (i = 0; i < 256; i++) {
-    buckets[i] = 0;
-  }
-  for (i = 0; i < obj.oldsize; i++) {
-    buckets[obj.old[i]]++;
-  }
-  for (i = 1; i < 256; i++) {
-    buckets[i] += buckets[i - 1];
-  }
-  for (i = 255; i > 0; i--) {
-    buckets[i] = buckets[i - 1];
-  }
-  buckets[0] = 0;
-
-  for (i = 0; i < obj.oldsize; i++) {
-    obj.I[++buckets[obj.old[i]]] = i;
-    obj.I[0] = obj.oldsize;
-  }
-  for (i = 0; i < obj.oldsize; i++) {
-    obj.V[i] = buckets[obj.old[i]];
-    obj.V[obj.oldsize] = 0;
-  }
-  for (i = 1; i < 256; i++) {
-    if (buckets[i] == buckets[i - 1] + 1) obj.I[buckets[i]] = -1;
-  }
-
-  obj.I[0] = -1;
-  for (h = 1; obj.I[0] != -(obj.oldsize + 1); h += h) {
-    len = 0;
-    for (i = 0; i < obj.oldsize + 1; ) {
-      if (obj.I[i] < 0) {
-        len -= obj.I[i];
-        i -= obj.I[i];
-      } else {
-        if (len) obj.I[i - len] = -len;
-        len = obj.V[obj.I[i]] + 1 - i;
-
-        let obj_to_split = {
-          I: obj.I,
-          V: obj.V,
-          start: i,
-          len: len,
-          h: h,
-        };
-        split(obj_to_split);
-        i += len;
-        len = 0;
-      }
+    for (i = 0; i < 256; i++) {
+      buckets[i] = 0;
     }
-    if (len) obj.I[i - len] = -len;
-  }
+    for (i = 0; i < oldLength; i++) {
+      buckets[oldData.at(i)]++;
+    }
+    for (i = 1; i < 256; i++) {
+      buckets[i] += buckets[i - 1];
+    }
+    for (i = 255; i > 0; i--) {
+      buckets[i] = buckets[i - 1];
+    }
+    buckets[0] = 0;
+    for (i = 0; i < oldLength; i++) {
+      I[++buckets[oldData.at(i)]] = i;
+    }
+    I[0] = oldLength;
+    for (i = 0; i < oldLength; i++) {
+      V[i] = buckets[oldData.at(i)];
+    }
+    V[oldLength] = 0;
+    for (i = 1; i < 256; i++) {
+      if (buckets[i] == buckets[i - 1] + 1) I[buckets[i]] = -1;
+    }
+    I[0] = -1;
 
-  for (i = 0; i < oldsize + 1; i++) {
-    obj.I[obj.V[i]] = i;
+    for (h = 1; I[0] != -(oldLength + 1); h += h) {
+      len = 0;
+      for (i = 0; i < oldLength + 1; ) {
+        if (I[i] < 0) {
+          len -= I.at(i);
+          i -= I.at(i);
+        } else {
+          if (len) I[i - len] = -len;
+          len = V.at(I.at(i)) + 1 - i;
+          //console.log("sort call: ", i);
+          //console.log("len: ", len);
+          if ((await split({ I: I, V: V, start: i, len: len, h: h })) == -1) {
+            throw new Error(" splitting error");
+          }
+          i += len;
+          len = 0;
+        }
+      }
+      if (len) I[i - len] = -len;
+    }
+
+    for (i = 0; i < oldLength + 1; i++) {
+      I[V[i]] = i;
+    }
+  } catch (Error) {
+    console.error(Error);
+    return -1;
   }
 }
 
@@ -203,10 +240,9 @@ function qsufsort(obj) {
 //
 ///////////////////////////////////////////////////////////////////
 function matchlen(old, oldsize, neww, newsize) {
-  for (var i = 0; i < oldsize && i < newsize; i++) {
-    if (old[i] != neww[i]) {
-      break;
-    }
+  let i;
+  for (i = 0; i < oldsize && i < newsize; i++) {
+    if (old.at(i) != neww.at(i)) break;
   }
   return i;
 }
@@ -218,56 +254,80 @@ function matchlen(old, oldsize, neww, newsize) {
 // not sure if it should be returning itself
 //
 ///////////////////////////////////////////////////////////////////
-function search(obj) {
+function search({ I, oldData, oldSize, newData, newSize, st, en, pos }) {
   let x, y;
-  //consider using a Typed array to store and manipulate raw binary values
-  if (obj.en - obj.st < 2) {
-    x = matchlen(
-      obj.old + obj.I[obj.st],
-      obj.oldSize - obj.I[obj.st],
-      obj.neww,
-      obj.newSize
-    );
-    y = matchlen(
-      obj.old + obj.I[obj.en],
-      obj.oldSize - obj.I[obj.en],
-      obj.neww,
-      obj.newSize
-    );
-    if (x > y) {
-      obj.pos = obj.I[obj.st];
-      return x;
-    } else {
-      obj.pos = obj.I[obj.en];
-      return y;
+  try {
+    if (en - st < 2) {
+      const oldDataScanX = oldData.subarray(I.at(st));
+      const oldDataScanY = oldData.subarray(I.at(en));
+      console.log("oldDataScanX: ", oldDataScanX);
+      console.log("I.at(st): ", I.at(st));
+      console.log("oldData: ", oldData);
+      // x = matchlen(oldData + I.at(st), oldSize - I.at(st), newData, newSize);
+      // y = matchlen(oldData + I.at(en), oldSize - I.at(en), newData, newSize);
+      x = matchlen(oldDataScanX, oldDataScanX.length, newData, newSize);
+      y = matchlen(oldDataScanY, oldDataScanX.length, newData, newSize);
+
+      if (x > y) {
+        pos = I.at(st);
+        if (isNaN(pos)) {
+          console.log("x: ", x);
+          throw new Error("search function error");
+        }
+        console.log("x: ", x);
+        return x;
+      } else {
+        pos = I.at(en);
+        if (isNaN(pos)) {
+          console.log("en: ", en);
+          console.log("y: ", y);
+          throw new Error("search function error");
+        }
+        console.log("y: ", y);
+        return y;
+      }
     }
-  }
-  x = obj.st + (obj.en - obj.st) / 2;
-  //if first differing byte in lhs is less than in rhs
-  if (memcmp(old + I[x], neww, Math.min(oldSize - I[x], newSize)) < 0) {
-    //if() {
-    return search(
-      obj.I,
-      obj.old,
-      obj.oldSize,
-      obj.neww,
-      obj.newSize,
-      x,
-      obj.en,
-      obj.pos
-    );
-  } //if all bytes are equal or first differing byte in lhs is more greater than in rhs
-  else {
-    return search(
-      obj.I,
-      obj.old,
-      obj.oldSize,
-      obj.neww,
-      obj.newSize,
-      obj.st,
-      x,
-      obj.pos
-    );
+    //this is calculating position of element from array I
+    x = Math.floor(st + (en - st) / 2); // round down to avoid fraction numbers(alas int)
+
+    const ix = Math.min(oldSize - I.at(x), newSize);
+    for (let i = 0; i < ix; i++) {
+      //means take the pointer to beginning of oldData and move it by value of I
+      console.log("i + I.at(x)", i + I.at(x));
+      if (oldData.at(i + I.at(x)) < newData.at(i)) {
+        //if first differing byte on left side is less than right side
+        //console.log("x: ", x);
+        //console.log("I.at(x): ", I.at(x));
+        return search({
+          I: I,
+          oldData: oldData,
+          oldSize: oldSize,
+          newData: newData,
+          newSize: newSize,
+          st: x,
+          en: en,
+          pos: pos,
+        });
+      } else {
+        //if all bytes are equal or
+        ///first differing byte on left side is greater than right side
+        console.log("st: ", st);
+        //console.log("I.at(x): ", I.at(x));
+        return search({
+          I: I,
+          oldData: oldData,
+          oldSize: oldSize,
+          newData: newData,
+          newSize: newSize,
+          st: st,
+          en: x,
+          pos: pos,
+        });
+      }
+    }
+  } catch (Error) {
+    console.error(Error);
+    return;
   }
 }
 
@@ -278,15 +338,18 @@ function search(obj) {
 // that bsdiff produces.
 //
 ///////////////////////////////////////////////////////////////////
-function do_diff({ oldData, oldDataLength, newData, newDataLength } = {}) {
+export async function do_diff({
+  oldData,
+  oldDataLength,
+  newData,
+  newDataLength,
+} = {}) {
   try {
-    let oldBuffer = new ArrayBuffer(oldDataLength);
-    let newBuffer = new ArrayBuffer(newDataLength);
-    let oldView = new Uint8Array(oldBuffer);
-    let newView = new Uint8Array(newBuffer);
-    //copy data from parameters to local arraybuffers
-    oldView = copy(oldData);
-    newView = copy(newData);
+    console.log("diffing");
+    //create local views on the bytes arrays passed as arguments
+    const oldView = new Int8Array(oldData);
+    const newView = new Int8Array(newData);
+    let AsBytes = new TextEncoder(); //Encode in utf-8 format
 
     let lastscan = 0,
       lastpos = 0,
@@ -296,8 +359,6 @@ function do_diff({ oldData, oldDataLength, newData, newDataLength } = {}) {
       overlap = 0,
       Ss = 0,
       lens = 0,
-      I = 0,
-      V = 0,
       dblen = 0,
       eblen = 0,
       scan = 0,
@@ -310,50 +371,48 @@ function do_diff({ oldData, oldDataLength, newData, newDataLength } = {}) {
       lenb = 0,
       i = 0,
       temp,
-      array = [3],
-      db,
-      eb;
+      array = [3];
+
+    let I = new Int8Array(oldDataLength + 1),
+      V = new Int8Array(oldDataLength + 1),
+      db = new Int8Array(newDataLength + 1), //diff blocks
+      eb = new Int8Array(newDataLength + 1); //extra blocks
 
     /* create the control array */
     let controlArrays = [];
-    /* perform sort on original data */
-    let obj_sort_old = {
+    // Suffix sorting does not seem to cooperate with Typed arrays, hence
+    // i will use a built in array sort method
+    /* perform suffix sort on original data */
+    await qsufsort({
       I: I,
       V: V,
-      old: oldView,
+      oldData: oldView,
       oldLength: oldDataLength,
-    };
-    qsufsort(obj_sort_old); // run this in another thread?
-
+    });
+    console.log("old data sorted");
+    console.log("I:", I);
     /* perform the diff */
     while (scan < newDataLength) {
-      //here put a line that makes the function interruptible( cause its blocking)
-      //consider running this code in a Web worker
       oldscore = 0;
-      //multithreading?
       for (scsc = scan += len; scan < newDataLength; scan++) {
         //search should propably take an object as arguement for passing by ref
-        let obj_to_search = {
+        const newViewScan = newView.subarray(scan);
+        len = search({
           I: I,
           oldData: oldView,
           oldSize: oldDataLength,
-          newData: newView + scan,
-          newSize: newDataLength - scan,
+          //newData: newView + scan, //means take the pointer to beggining of newView and move it by value of scan
+          newData: newViewScan,
+          //newSize: newDataLength - scan,
+          newSize: newViewScan.length,
           st: 0,
           en: oldDataLength,
           pos: pos,
-        };
-        // len = search(
-        //   I,
-        //   oldData,
-        //   oldDataLength,
-        //   newData + scan,
-        //   newDataLength - scan,
-        //   0,
-        //   oldDataLength,
-        //   pos
-        // );
-        len = search(obj_to_search);
+        });
+        if (isNaN(len)) {
+          throw new Error("search function error");
+        }
+        console.log("len from search: ", len);
         for (; scsc < scan + len; scsc++) {
           if (
             scsc + lastoffset < oldDataLength &&
@@ -409,6 +468,8 @@ function do_diff({ oldData, oldDataLength, newData, newDataLength } = {}) {
           lenf += lens - overlap;
           lenb -= lens;
         }
+        console.log("db: ", db);
+        console.log("dblen: ", dblen);
 
         for (i = 0; i < lenf; i++) {
           db[dblen + i] = newView[lastscan + i] - oldView[lastpos + i];
@@ -419,9 +480,9 @@ function do_diff({ oldData, oldDataLength, newData, newDataLength } = {}) {
         dblen += lenf;
         eblen += scan - lenb - (lastscan + lenf);
 
-        array[0] = lenf;
-        array[1] = scan - lenb - (lastscan + lenf);
-        array[2] = pos - lenb - (lastpos + lenf);
+        array[0] = AsBytes.encode(lenf);
+        array[1] = AsBytes.encode(scan - lenb - (lastscan + lenf));
+        array[2] = AsBytes.encode(pos - lenb - (lastpos + lenf));
 
         controlArrays.push(array);
 
@@ -431,9 +492,8 @@ function do_diff({ oldData, oldDataLength, newData, newDataLength } = {}) {
       }
     }
 
-    results = [3];
+    let results = [3];
     results[0] = controlArrays;
-    let AsBytes = new TextEncoder(); //Encode in utf-8 format
     temp = AsBytes.encode(db);
     results[1] = temp;
     temp = AsBytes.encode(eb);
@@ -442,6 +502,7 @@ function do_diff({ oldData, oldDataLength, newData, newDataLength } = {}) {
     return results;
   } catch (Error) {
     console.error(Error);
+    return -1;
   }
 }
 
@@ -451,7 +512,7 @@ function do_diff({ oldData, oldDataLength, newData, newDataLength } = {}) {
 // diff and extra blocks produced by bsdiff and returns the new data.
 //
 ///////////////////////////////////////////////////////////////////
-function do_patch({
+export function do_patch({
   oldData,
   oldDataLength,
   newDataLength,
@@ -462,6 +523,7 @@ function do_patch({
   extraBlockLength,
 } = {}) {
   try {
+    console.log("patching");
     //copy data from parameters to local structures
     let oldBuffer = new ArrayBuffer(oldDataLength);
     let newBuffer = new ArrayBuffer(newDataLength);
