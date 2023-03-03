@@ -1,27 +1,5 @@
 ///////////////////////////////////////////////////////////////////
 //
-// A function for copying contents of source ArrayBuffer.
-// Returns new ArrayBuffer with conents of the source.
-//
-// Author: Gleno
-// Date: Mar 1, 2014
-// URL: https://stackoverflow.com/questions/10100798/whats-the-most-straightforward-way-to-copy-an-arraybuffer-object
-///////////////////////////////////////////////////////////////////
-function copy(src) {
-  try {
-    if (!ArrayBuffer.isView(src)) {
-      throw new Error("Expected typed array type of src parameter");
-    }
-    var dst = new ArrayBuffer(src.byteLength);
-    new Uint8Array(dst).set(new Uint8Array(src));
-    return dst;
-  } catch (Error) {
-    console.error(Error);
-  }
-}
-
-///////////////////////////////////////////////////////////////////
-//
 // An adaptation of C standard library function memcpy.
 // Takes uint8array typed arrays as arguments and
 //
@@ -66,15 +44,15 @@ function memcmp(src, dst, length) {
 function split(I, V, start, len, h) {
   try {
     let i, j, k, x, tmp, jj, kk;
-    //console.log("I: ", I);
+
     if (len < 16) {
       //console.log("tiny splitting");
       for (k = start; k < start + len; k += j) {
         j = 1;
-        x = V.at(I.at(k) + h);
+        x = V.at(I[k] + h);
         for (i = 1; k + i < start + len; i++) {
-          if (V.at(I.at(k + i) + h) < x) {
-            x = V.at(I.at(k + i) + h);
+          if (V.at(I[k + i] + h) < x) {
+            x = V.at(I[k + i] + h);
             j = 0;
           }
           if (V.at(I.at(k + i) + h) == x) {
@@ -85,25 +63,26 @@ function split(I, V, start, len, h) {
           }
         }
         for (i = 0; i < j; i++) {
-          V[I.at(k + i)] = k + j - 1;
+          V[I[k + i]] = k + j - 1;
         }
         if (j == 1) I[k] = -1;
       }
     } else {
       //console.log("big splitting");
-      const y = Number(start + len / 2);
-      const l = I.at(y);
-      if (isNaN(l)) {
-        throw new Error(" I returned a NaN");
-      }
-      x = V.at(l + h);
+      // const y = Number(start + len / 2);
+      // const l = I.at(y);
+      // if (isNaN(l)) {
+      //   throw new Error(" I returned a NaN");
+      // }
+      // x = V.at(l + h);
+      x = V.at(I[start + len / 2] + h);
       console.log("x:", x);
       jj = 0;
       kk = 0;
 
       for (i = start; i < start + len; i++) {
-        if (V.at(I.at(i) + h) < x) jj++;
-        if (V.at(I.at(i) + h) == x) kk++;
+        if (V.at(I[i] + h) < x) jj++;
+        if (V.at(I[i] + h) == x) kk++;
       }
       jj += start;
       kk += jj;
@@ -115,15 +94,14 @@ function split(I, V, start, len, h) {
       // console.log("jj: %d", jj);
       // console.log("kk: %d", kk);
       while (i < jj) {
-        if (V.at(I.at(i) + h) < x) i++;
-        else if (V.at(I.at(i) + h) == x) {
+        if (V.at(I[i] + h) < x) i++;
+        else if (V.at(I[i] + h) == x) {
           //console.log("splitting3.1.3");
           tmp = I.at(i);
           I[i] = I.at(jj + j);
           I[jj + j] = tmp;
           j++;
         } else {
-          //console.log("splitting3.1.4");
           tmp = I.at(i);
           I[i] = I.at(kk + k);
           I[kk + k] = tmp;
@@ -132,7 +110,7 @@ function split(I, V, start, len, h) {
       }
 
       while (jj + j < kk) {
-        if (V.at(I.at(jj + j) + h) == x) j++;
+        if (V.at(I[jj + j] + h) == x) j++;
         else {
           tmp = I.at(jj + j);
           I[jj + j] = I.at(kk + k);
@@ -145,14 +123,13 @@ function split(I, V, start, len, h) {
         split(I, V, start, jj - start, h);
       }
       for (i = 0; i < kk - jj; i++) {
-        V[I.at(jj + i)] = kk - 1;
+        V[I[jj + i]] = kk - 1;
       }
 
       if (jj == kk - 1) I[jj] = -1;
 
       if (start + len > kk) {
         //console.log("recurse 2");
-        //console.log(len == kk);
         split(I, V, kk, start + len - kk, h);
       }
       return 0;
@@ -174,13 +151,14 @@ async function qsufsort(I, V, oldData, oldLength) {
       i,
       h,
       len;
-
+    console.log(oldLength);
     //sorting buckets calc
     for (i = 0; i < 256; i++) {
       buckets[i] = 0;
     }
     for (i = 0; i < oldLength; i++) {
       buckets[oldData[i]]++;
+      console.log(oldData[i]);
     }
     for (i = 1; i < 256; i++) {
       buckets[i] += buckets[i - 1];
@@ -196,7 +174,7 @@ async function qsufsort(I, V, oldData, oldLength) {
     }
     I[0] = oldLength;
     for (i = 0; i < oldLength; i++) {
-      V[i] = buckets[oldData[i]];
+      V[i] = buckets.at(oldData[i]);
     }
     V[oldLength] = 0;
     for (i = 1; i < 256; i++) {
@@ -204,7 +182,7 @@ async function qsufsort(I, V, oldData, oldLength) {
     }
     I[0] = -1;
 
-    //console.log("I: ", I);
+    console.log("buckets: ", buckets);
     //console.log("V: ", V);
 
     for (h = 1; I[0] != -(oldLength + 1); h += h) {
@@ -217,17 +195,22 @@ async function qsufsort(I, V, oldData, oldLength) {
         } else {
           if (len) {
             console.log("I[i - len]", I[i - len]);
-            I[i - len] = -len;
+            const Inew = i - len;
+            if (Inew) I[Inew] = -len; //if Inew positive
+            else I[I.length - Inew] = -len;
           }
-          len = V.at(I.at(i)) + 1 - i;
-          //console.log("sort call2: ", i);
-          //console.log("len: ", len);
+          len = V.at(I[i]) + 1 - i;
           split(I, V, i, len, h);
           i += len;
           len = 0;
         }
       }
-      if (len) I[i - len] = -len;
+      //if len is positive
+      if (len) {
+        const Inew = i - len;
+        if (Inew) I[Inew] = -len;
+        else I[I.length - Inew] = -len;
+      }
     }
 
     for (i = 0; i < oldLength + 1; i++) {
@@ -383,94 +366,73 @@ function search({ I, oldData, oldSize, newData, newSize, st, en, pos }) {
 // that bsdiff produces.
 //
 ///////////////////////////////////////////////////////////////////
-export async function do_diff({
-  oldData,
-  oldDataLength,
-  newData,
-  newDataLength,
-} = {}) {
+export async function do_diff(oldData, oldDataLength, newData, newDataLength) {
   try {
     console.log("diffing");
-    //create local views on the bytes arrays passed as arguments
-    const oldView = new Int8Array(oldData);
-    const newView = new Int8Array(newData);
-    let AsBytes = new TextEncoder(); //Encode in utf-8 format
-
-    let lastscan = 0,
-      lastpos = 0,
-      lastoffset = 0,
-      oldscore = 0,
-      scsc = 0,
-      overlap = 0,
-      Ss = 0,
-      lens = 0,
-      dblen = 0,
-      eblen = 0,
-      scan = 0,
-      pos = 0,
-      len = 0,
-      s = 0,
-      Sf = 0,
-      lenf = 0,
-      Sb = 0,
-      lenb = 0,
-      i = 0,
-      temp,
-      array = [3];
-
-    let I = new Int8Array(oldDataLength + 1),
-      V = new Int8Array(oldDataLength + 1),
-      db = new Int8Array(newDataLength + 1), //diff blocks
-      eb = new Int8Array(newDataLength + 1); //extra blocks
+    let lastscan, lastpos, lastoffset, oldscore, scsc, overlap, Ss;
+    let lens, dblen, eblen, scan, pos, len, s;
+    let Sf, lenf, Sb, lenb, i, temp;
 
     /* create the control array */
-    let controlArrays = [];
-    // Suffix sorting does not seem to cooperate with Typed arrays, hence
-    // i will use a built in array sort method
+    let controlArrays = [],
+      cArray = Buffer.alloc(3);
+
+    let I = new Int8Array(oldDataLength + 1),
+      V = new Int8Array(oldDataLength + 1);
+
     /* perform suffix sort on original data */
-    await qsufsort(I, V, oldView, oldDataLength);
+    console.log(oldDataLength);
+    await qsufsort(I, V, oldData, oldDataLength);
     console.log("old data sorted");
     console.log("I:", I);
+    console.log("V:", V);
+
+    let db = Buffer.alloc(newDataLength + 1), //diff blocks
+      eb = Buffer.alloc(newDataLength + 1); //extra blocks
+
+    dblen = 0;
+    eblen = 0;
+
     /* perform the diff */
+    len = 0;
+    scan = 0;
+    lastscan = 0;
+    lastpos = 0;
+    lastoffset = 0;
+    pos = 0;
     while (scan < newDataLength) {
       oldscore = 0;
       for (scsc = scan += len; scan < newDataLength; scan++) {
-        //search should propably take an object as arguement for passing by ref
-        const newViewScan = newView.subarray(scan);
         len = search({
           I: I,
-          oldData: oldView,
+          oldData: oldData,
           oldSize: oldDataLength,
-          //newData: newView + scan, //means take the pointer to beggining of newView and move it by value of scan
-          newData: newViewScan,
-          //newSize: newDataLength - scan,
-          newSize: newViewScan.length,
+          newData: newData.subarray(scan),
+          newSize: newDataLength - scan,
           st: 0,
           en: oldDataLength,
           pos: pos,
         });
-        if (isNaN(len)) {
-          throw new Error("search function error");
-        }
         console.log("len from search: ", len);
+        if (isNaN(len)) throw new Error("search function error");
         for (; scsc < scan + len; scsc++) {
           if (
             scsc + lastoffset < oldDataLength &&
-            oldView[scsc + lastoffset] == newView[scsc]
+            oldData[scsc + lastoffset] == newData[scsc]
           )
             oldscore++;
         }
         if ((len == oldscore && len != 0) || len > oldscore + 8) break;
         if (
           scan + lastoffset < oldDataLength &&
-          oldView[scan + lastoffset] == newView[scan]
+          oldData[scan + lastoffset] == newData[scan]
         )
           oldscore--;
       }
 
       if (len != oldscore || scan == newDataLength) {
         for (i = 0; lastscan + i < scan && lastpos + i < oldDataLength; ) {
-          if (oldView[lastpos + i] == newView[lastscan + i]) {
+          if (oldData[lastpos + i] == newData[lastscan + i]) {
             s++;
           }
           i++;
@@ -482,7 +444,7 @@ export async function do_diff({
 
         if (scan < newDataLength) {
           for (i = 1; scan >= lastscan + i && pos >= i; i++) {
-            if (oldView[pos - i] == newView[scan - i]) s++;
+            if (oldData[pos - i] == newData[scan - i]) s++;
             if (s * 2 - i > Sb * 2 - lenb) {
               Sb = s;
               lenb = i;
@@ -494,11 +456,11 @@ export async function do_diff({
           overlap = lastscan + lenf - (scan - lenb);
           for (i = 0; i < overlap; i++) {
             if (
-              newView[lastscan + lenf - overlap + i] ==
-              oldView[lastpos + lenf - overlap + i]
+              newData[lastscan + lenf - overlap + i] ==
+              oldData[lastpos + lenf - overlap + i]
             )
               s++;
-            if (newView[scan - lenb + i] == oldView[pos - lenb + i]) s--;
+            if (newData[scan - lenb + i] == oldData[pos - lenb + i]) s--;
             if (s > Ss) {
               Ss = s;
               lens = i + 1;
@@ -512,19 +474,18 @@ export async function do_diff({
         console.log("dblen: ", dblen);
 
         for (i = 0; i < lenf; i++) {
-          db[dblen + i] = newView[lastscan + i] - oldView[lastpos + i];
+          db[dblen + i] = newData[lastscan + i] - oldData[lastpos + i];
         }
         for (i = 0; i < scan - lenb - (lastscan + lenf); i++) {
-          eb[eblen + i] = newView[lastscan + lenf + i];
+          eb[eblen + i] = newData[lastscan + lenf + i];
         }
         dblen += lenf;
         eblen += scan - lenb - (lastscan + lenf);
 
-        array[0] = AsBytes.encode(lenf);
-        array[1] = AsBytes.encode(scan - lenb - (lastscan + lenf));
-        array[2] = AsBytes.encode(pos - lenb - (lastpos + lenf));
-
-        controlArrays.push(array);
+        cArray.write(lenf, 0, 4, "utf8");
+        cArray.write(scan - lenb - (lastscan + lenf), 4, 4, "utf8");
+        cArray.write(pos - lenb - (lastpos + lenf), 8, 4, "utf8");
+        controlArrays.push(cArray);
 
         lastscan = scan - lenb;
         lastpos = pos - lenb;
@@ -534,10 +495,8 @@ export async function do_diff({
 
     let results = [3];
     results[0] = controlArrays;
-    temp = AsBytes.encode(db);
-    results[1] = temp;
-    temp = AsBytes.encode(eb);
-    results[2] = temp;
+    results[1] = db;
+    results[2] = eb;
 
     return results;
   } catch (Error) {

@@ -1,6 +1,7 @@
 import Head from "next/head";
 import { useEffect, useState, useRef } from "react";
-import { diff, patch } from "../external/bsdiff4.js";
+import { diff, patch } from "../external/bsdiff4_buffers";
+const { Buffer } = require("buffer");
 //filters so that we don't detect unnecessary usb devices in a system
 const filters = [
   { vendorId: 0x2fe3, productId: 0x0100 },
@@ -128,27 +129,28 @@ export default function Home() {
     // });
     // console.log(await response.json());
 
-    //  a = 100000 * b'a'
-    //  b = bytearray(a)
-    //  b[100:106] = b' diff '
-    //  p = bsdiff4.diff(a, bytes(b))
-    //  len(p)
-    // 154
     const t = [0b01100100, 0b01101001, 0b01100110, 0b01100110]; //"diff"
-    const a = new ArrayBuffer(100);
-    let aS = new Int8Array(a);
-    aS.fill(0b01100001); //'a'
+    // Array buffer approach
+    // const a = new ArrayBuffer(800);
+    // let aS = new Int8Array(a);
+    // aS.fill(0b01100001); //'a'
 
-    let b = new ArrayBuffer(100);
-    let bS = new Int8Array(b);
-    bS.set(aS);
-    bS.set(t, 90);
+    // let b = new ArrayBuffer(700);
+    // let bS = new Int8Array(b);
+    // bS.fill(0b01100001); //'a'
+    // bS.set(t, 50);
     //diff here after converting newImg and oldImg to arraybuffer
+
+    //Buffer approach
+    const a = Buffer.alloc(200, 0b01100001);
+    let b = Buffer.alloc(150, 0b01100001);
+    console.log(a.length);
+    b.set(t, 100);
     diff({
-      arrBuff_old: a,
-      old_length: a.byteLength,
-      arrBuff_new: b,
-      new_length: b.byteLength,
+      oldD: a,
+      oldLength: a.length,
+      newD: b,
+      newLength: b.length,
     }).then((value) => {
       if (value == -1) return -1;
       console.log(value.byteLength);
